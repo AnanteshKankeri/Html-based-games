@@ -12,11 +12,11 @@ This is a fun and interactive **Snake Game** implemented in HTML, CSS, and JavaS
   - Highlighted snake head and circular food.
 
 ## Files
-1. `Snake Game.html`: The main file containing the game code.
+1. `Snake game.html`: The main file containing the game code.
 2. `README.md`: This file, which explains the project.
 
 ## How to Run
-1. **Download** or **copy** the `Snake Game.html` file.
+1. **Download** or **copy** the `Snake game.html` file.
 2. Open the file in any modern web browser (e.g., Chrome, Firefox, Edge).
 3. Use the arrow keys to control the snake and enjoy the game.
 
