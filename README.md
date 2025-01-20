@@ -44,7 +44,8 @@ You can easily modify the following features in the code:
 No external libraries are required. Everything runs natively in the browser.
 
 ## Screenshots
-Include screenshots of the game here (optional).
+
+https://cloud-ghhzbro4g-hack-club-bot.vercel.app/0image.png
 
 ## Future Enhancements
 Some ideas for future updates:
