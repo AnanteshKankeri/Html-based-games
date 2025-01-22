@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Adventure Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, black, #020b1b);
+        }
+        .game-over, .game-start {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .game-over button, .game-start button {
+            background: #f04e4e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .game-over button:hover, .game-start button:hover {
+            background: #d04040;
+        }
+        .score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div class="score" id="scoreDisplay">Score: 0</div>
+<div class="game-over" id="gameOverScreen" style="display: none;">
+    <h1>Game Over</h1>
+    <p id="finalScore">Your Score: 0</p>
+    <button id="restartButton">Restart</button>
+</div>
+<div class="game-start" id="gameStartScreen">
+    <h1>Welcome to Space Adventure!</h1>
+    <p>Dodge the enemies, collect power-ups, and score as high as you can!</p>
+    <button id="startButton">Start Game</button>
+</div>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const restartButton = document.getElementById('restartButton');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const finalScore = document.getElementById('finalScore');
+    const gameStartScreen = document.getElementById('gameStartScreen');
+    const startButton = document.getElementById('startButton');
+
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let score = 0;
+    let isGameRunning = true;
+
+    const player = {
+        x: canvas.width / 2,
+        y: canvas.height - 100,
+        width: 40,
+        height: 40,
+        color: 'cyan',
+        speed: 7,
+        dx: 0,
+        bullets: []
+    };
+
+    const enemies = [];
+    const powerUps = [];
+
+    function createEnemy() {
+        const size = Math.random() * 40 + 20;
+        const x = Math.random() * (canvas.width - size);
+        enemies.push({
+            x,
+            y: 0,
+            width: size,
+            height: size,
+            speed: Math.random() * 2 + 1,
+            rotation: Math.random() * Math.PI * 2
+        });
+    }
+
+    function createPowerUp() {
+        const size = 20;
+        const x = Math.random() * (canvas.width - size);
+        powerUps.push({
+            x,
+            y: 0,
+            width: size,
+            height: size,
+            color: 'gold',
+            speed: 1.5
+        });
+    }
+
+    function drawPlayer() {
+        ctx.fillStyle = player.color;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.width / 2, 0, Math.PI * 2);
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'cyan';
+        ctx.fill();
+        ctx.closePath();
+        ctx.shadowBlur = 0;
+
+        // Draw bullets
+        player.bullets.forEach(bullet => {
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+        });
+    }
+
+    function shoot() {
+        player.bullets.push({
+            x: player.x,
+            y: player.y - player.width / 2,
+            radius: 5,
+            speed: 8
+        });
+    }
+
+    function moveBullets() {
+        player.bullets.forEach((bullet, index) => {
+            bullet.y -= bullet.speed;
+            if (bullet.y < 0) {
+                player.bullets.splice(index, 1);
+            }
+        });
+    }
+
+    function drawEnemies() {
+        enemies.forEach(enemy => {
+            ctx.save();
+            ctx.translate(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+            ctx.rotate(enemy.rotation);
+            ctx.fillStyle = 'gray';
+            ctx.beginPath();
+            ctx.arc(0, 0, enemy.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+            ctx.restore();
+        });
+    }
+
+    function drawPowerUps() {
+        powerUps.forEach(powerUp => {
+            ctx.fillStyle = powerUp.color;
+            ctx.beginPath();
+            ctx.arc(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2, powerUp.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+        });
+    }
+
+    function moveEnemies() {
+        enemies.forEach(enemy => {
+            enemy.y += enemy.speed;
+            enemy.rotation += 0.01;
+        });
+    }
+
+    function movePowerUps() {
+        powerUps.forEach(powerUp => {
+            powerUp.y += powerUp.speed;
+        });
+    }
+
+    function checkCollision() {
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
+            const dx = player.x - (enemy.x + enemy.width / 2);
+            const dy = player.y - (enemy.y + enemy.height / 2);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < player.width / 2 + enemy.width / 2) {
+                endGame();
+            }
+
+            // Bullet collision
+            player.bullets.forEach((bullet, bulletIndex) => {
+                const bdx = bullet.x - (enemy.x + enemy.width / 2);
+                const bdy = bullet.y - (enemy.y + enemy.height / 2);
+                const bulletDistance = Math.sqrt(bdx * bdx + bdy * bdy);
+
+                if (bulletDistance < bullet.radius + enemy.width / 2) {
+                    score += 10;
+                    enemies.splice(i, 1);
+                    player.bullets.splice(bulletIndex, 1);
+                }
+            });
+        }
+
+        powerUps.forEach((powerUp, index) => {
+            const dx = player.x - (powerUp.x + powerUp.width / 2);
+            const dy = player.y - (powerUp.y + powerUp.height / 2);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < player.width / 2 + powerUp.width / 2) {
+                score += 50;
+                powerUps.splice(index, 1);
+            }
+        });
+    }
+
+    function endGame() {
+        isGameRunning = false;
+        cancelAnimationFrame(animationFrameId);
+        gameOverScreen.style.display = 'block';
+        finalScore.textContent = `Your Score: ${score}`;
+    }
+
+    restartButton.addEventListener('click', () => {
+        enemies.length = 0;
+        powerUps.length = 0;
+        player.x = canvas.width / 2;
+        player.y = canvas.height - 100;
+        score = 0;
+        gameOverScreen.style.display = 'none';
+        isGameRunning = true;
+        gameLoop();
+    });
+
+    startButton.addEventListener('click', () => {
+        gameStartScreen.style.display = 'none';
+        isGameRunning = true;
+        gameLoop();
+    });
+    
+    let animationFrameId;
+
+    function gameLoop() {
+        if (!isGameRunning) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawPlayer();
+        drawEnemies();
+        drawPowerUps();
+        moveBullets();
+        moveEnemies();
+        movePowerUps();
+        checkCollision();
+
+        score += 1;
+        scoreDisplay.textContent = `Score: ${score}`;
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') player.dx = -player.speed;
+        if (e.key === 'ArrowRight') player.dx = player.speed;
+        if (e.key === ' ') shoot();
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') player.dx = 0;
+    });
+
+    function movePlayer() {
+        player.x += player.dx;
+
+        // Boundary conditions
+        if (player.x - player.width / 2 < 0) player.x = player.width / 2;
+        if (player.x + player.width / 2 > canvas.width) player.x = canvas.width - player.width / 2;
+    }
+
+    function spawnEntities() {
+        if (Math.random() < 0.02) createEnemy();
+        if (Math.random() < 0.01) createPowerUp();
+    }
+
+    function gameLoop() {
+        if (!isGameRunning) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        movePlayer();
+        moveBullets();
+        moveEnemies();
+        movePowerUps();
+
+        checkCollision();
+        spawnEntities();
+
+        drawPlayer();
+        drawEnemies();
+        drawPowerUps();
+
+        score += 1;
+        scoreDisplay.textContent = `Score: ${score}`;
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    // Start the game loop
+    gameLoop();
+</script>
+</body>
+</html>
+
