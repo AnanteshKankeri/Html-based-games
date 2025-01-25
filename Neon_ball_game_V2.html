@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Ball Game</title>
+    <style>
+        body {
+            margin: 0;
+            background: radial-gradient(circle, #141414, #000);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 5px solid #4caf50;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #4caf50;
+            transition: border-color 0.5s, box-shadow 0.5s;
+        }
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 20px;
+            border: none;
+            background: #4caf50;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #4caf50;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>Welcome to Neon Ball Game</h1>
+        <button onclick="startGame()">Start Game</button>
+    </div>
+    <div id="game-over-screen" style="display: none;">
+        <h1>Game Over!</h1>
+        <button onclick="restartGame()">Restart</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = window.innerWidth * 0.8;
+        canvas.height = window.innerHeight * 0.7;
+
+        let ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 15,
+            dx: 4,
+            dy: -4,
+            color: "#ff007f"
+        };
+
+        let paddle = {
+            width: 150,
+            height: 20,
+            x: (canvas.width - 150) / 2,
+            color: "#00e5ff",
+            dx: 8
+        };
+
+        let keys = {
+            right: false,
+            left: false
+        };
+
+        let score = 0;
+        let isGameOver = false;
+        let hardMode = false;
+        let fireworks = [];
+        let wallColorHue = 120;
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ball.color;
+            ctx.shadowColor = ball.color;
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddle.x, canvas.height - paddle.height, paddle.width, paddle.height);
+            ctx.fillStyle = paddle.color;
+            ctx.shadowColor = paddle.color;
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawScore() {
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "#00ff00";
+            ctx.fillText(`Score: ${score}`, 10, 30);
+        }
+
+        function updateBallColor() {
+            ball.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        }
+
+        function movePaddle() {
+            if (keys.right && paddle.x + paddle.width < canvas.width) {
+                paddle.x += paddle.dx;
+            }
+            if (keys.left && paddle.x > 0) {
+                paddle.x -= paddle.dx;
+            }
+        }
+
+        function createFirework(x, y) {
+            for (let i = 0; i < 20; i++) {
+                fireworks.push({
+                    x,
+                    y,
+                    dx: (Math.random() - 0.5) * 6,
+                    dy: (Math.random() - 0.5) * 6,
+                    color: `hsl(${Math.random() * 360}, 100%, 70%)`,
+                    lifetime: 50
+                });
+            }
+        }
+
+        function drawFireworks() {
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                let fw = fireworks[i];
+                ctx.beginPath();
+                ctx.arc(fw.x, fw.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = fw.color;
+                ctx.shadowColor = fw.color;
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.closePath();
+
+                fw.x += fw.dx;
+                fw.y += fw.dy;
+                fw.lifetime--;
+
+                if (fw.lifetime <= 0) {
+                    fireworks.splice(i, 1);
+                }
+            }
+        }
+
+        function updateWallColor() {
+            wallColorHue = (wallColorHue + 2) % 360;
+            const newColor = `hsl(${wallColorHue}, 100%, 50%)`;
+            canvas.style.borderColor = newColor;
+            canvas.style.boxShadow = `0 0 20px ${newColor}`;
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBall();
+            drawPaddle();
+            drawScore();
+            drawFireworks();
+            movePaddle();
+
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+                ball.dx *= -1;
+                updateBallColor();
+                updateWallColor();
+            }
+
+            if (ball.y - ball.radius < 0) {
+                ball.dy *= -1;
+                updateBallColor();
+                updateWallColor();
+            }
+
+            if (
+                ball.y + ball.radius > canvas.height - paddle.height &&
+                ball.x > paddle.x &&
+                ball.x < paddle.x + paddle.width
+            ) {
+                ball.dy *= -1;
+                score++;
+
+                if (score > 10 && !hardMode) {
+                    hardMode = true;
+                    ball.dx *= 1.5;
+                    ball.dy *= 1.5;
+                }
+
+                if (score > 10) {
+                    createFirework(ball.x, ball.y);
+                }
+            }
+
+            if (ball.y + ball.radius > canvas.height) {
+                isGameOver = true;
+                document.getElementById("game-over-screen").style.display = "block";
+                canvas.style.display = "none";
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        function startGame() {
+            isGameOver = false;
+            score = 0;
+            ball = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                radius: 15,
+                dx: 4,
+                dy: -4,
+                color: "#ff007f"
+            };
+
+            paddle = {
+                width: 150,
+                height: 20,
+                x: (canvas.width - 150) / 2,
+                color: "#00e5ff",
+                dx: 8
+            };
+
+            keys.right = false;
+            keys.left = false;
+            fireworks = [];
+
+            document.getElementById("start-screen").style.display = "none";
+            document.getElementById("game-over-screen").style.display = "none";
+            canvas.style.display = "block";
+
+            update();
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        window.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowRight") keys.right = true;
+            if (event.key === "ArrowLeft") keys.left = true;
+        });
+
+        window.addEventListener("keyup", (event) => {
+            if (event.key === "ArrowRight") keys.right = false;
+            if (event.key === "ArrowLeft") keys.left = false;
+        });
+    </script>
+</body>
+</html>
