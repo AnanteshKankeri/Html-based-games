@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Tennis Pong with Hurdles</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #111;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            border: 5px solid #0ff;
+            box-shadow: 0 0 30px #0ff;
+            animation: neon-border 2s infinite;
+        }
+        @keyframes neon-border {
+            0% { border-color: #ff5733; box-shadow: 0 0 30px #ff5733; }
+            25% { border-color: #33c9ff; box-shadow: 0 0 30px #33c9ff; }
+            50% { border-color: #39ff14; box-shadow: 0 0 30px #39ff14; }
+            75% { border-color: #ffff33; box-shadow: 0 0 30px #ffff33; }
+            100% { border-color: #cc33ff; box-shadow: 0 0 30px #cc33ff; }
+        }
+        #level {
+            position: absolute;
+            top: 10px;
+            color: #0ff;
+            font-size: 20px;
+            text-shadow: 0 0 10px #0ff;
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            text-align: center;
+        }
+        #startScreen button {
+            background-color: #39ff14;
+            color: #111;
+            font-size: 20px;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            box-shadow: 0 0 15px #39ff14;
+        }
+        #startScreen button:hover {
+            background-color: #33c9ff;
+            box-shadow: 0 0 15px #33c9ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>Welcome to Neon Tennis Pong!</h1>
+        <p>Progress through levels, avoid hurdles, and test your reflexes!</p>
+        <button onclick="startGame()">Start Game</button>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="level">Level: 1</div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const startScreen = document.getElementById("startScreen");
+        const levelDisplay = document.getElementById("level");
+
+        let ballRadius = 10;
+        let paddleWidth = 120, paddleHeight = 20;
+        let leftPaddleX = (canvas.width - paddleWidth) / 2, rightPaddleX = (canvas.width - paddleWidth) / 2;
+        let leftPaddleY = canvas.height - paddleHeight - 20, rightPaddleY = 20;
+        let ballX = canvas.width / 2, ballY = canvas.height / 2;
+        let ballSpeedX = 3, ballSpeedY = 3;
+
+        let level = 1;
+        let hits = 0; // Tracks paddle hits
+        let hurdles = []; // Array to store hurdles
+
+        let leftPaddleSpeed = 0;
+        const paddleSpeed = 8;
+
+        const resetBall = () => {
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            ballSpeedX = 3 * (Math.random() > 0.5 ? 1 : -1);
+            ballSpeedY = 3 * (Math.random() > 0.5 ? 1 : -1);
+        };
+
+        const moveComputerPaddle = () => {
+            const targetX = ballX - paddleWidth / 2;
+            rightPaddleX += (targetX - rightPaddleX) * 0.1;
+
+            if (rightPaddleX < 0) rightPaddleX = 0;
+            if (rightPaddleX + paddleWidth > canvas.width) rightPaddleX = canvas.width - paddleWidth;
+        };
+
+        const updateBall = () => {
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            if (ballY + ballRadius > leftPaddleY &&
+                ballX > leftPaddleX &&
+                ballX < leftPaddleX + paddleWidth) {
+                ballSpeedY = -Math.abs(ballSpeedY);
+                hits++;
+                if (hits % 5 === 0) nextLevel();
+            }
+            if (ballY - ballRadius < rightPaddleY + paddleHeight &&
+                ballX > rightPaddleX &&
+                ballX < rightPaddleX + paddleWidth) {
+                ballSpeedY = Math.abs(ballSpeedY);
+            }
+
+            if (ballX - ballRadius < 0 || ballX + ballRadius > canvas.width) {
+                ballSpeedX = -ballSpeedX;
+            }
+
+            if (ballY - ballRadius < 0 || ballY + ballRadius > canvas.height) {
+                resetBall();
+            }
+
+            // Check collision with hurdles
+            hurdles.forEach((hurdle) => {
+                if (ballX > hurdle.x &&
+                    ballX < hurdle.x + hurdle.width &&
+                    ballY > hurdle.y &&
+                    ballY < hurdle.y + hurdle.height) {
+                    ballSpeedY = -ballSpeedY;
+                }
+            });
+        };
+
+        const drawBall = () => {
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = "#ff5733";
+            ctx.fill();
+            ctx.closePath();
+        };
+
+        const drawPaddle = (x, y, isPlayer) => {
+            ctx.beginPath();
+            ctx.rect(x, y, paddleWidth, paddleHeight);
+            ctx.fillStyle = isPlayer ? "#39ff14" : "#33c9ff";
+            ctx.fill();
+            ctx.closePath();
+        };
+
+        const drawHurdles = () => {
+            hurdles.forEach((hurdle) => {
+                ctx.beginPath();
+                ctx.rect(hurdle.x, hurdle.y, hurdle.width, hurdle.height);
+                ctx.fillStyle = hurdle.color;
+                ctx.fill();
+                ctx.closePath();
+            });
+        };
+
+        const movePaddle = () => {
+            leftPaddleX += leftPaddleSpeed;
+            if (leftPaddleX < 0) leftPaddleX = 0;
+            if (leftPaddleX + paddleWidth > canvas.width) leftPaddleX = canvas.width - paddleWidth;
+        };
+
+        const nextLevel = () => {
+            level++;
+            ballSpeedX *= 1.1;
+            ballSpeedY *= 1.1;
+            generateHurdles();
+            levelDisplay.textContent = `Level: ${level}`;
+        };
+
+        const generateHurdles = () => {
+            hurdles = [];
+            for (let i = 0; i < level; i++) {
+                hurdles.push({
+                    x: Math.random() * (canvas.width - 100),
+                    y: Math.random() * (canvas.height / 2) + canvas.height / 4,
+                    width: 50,
+                    height: 20,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`
+                });
+            }
+        };
+
+        const draw = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBall();
+            drawPaddle(leftPaddleX, leftPaddleY, true);
+            drawPaddle(rightPaddleX, rightPaddleY, false);
+            drawHurdles();
+
+            updateBall();
+            movePaddle();
+            moveComputerPaddle();
+
+            requestAnimationFrame(draw);
+        };
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") leftPaddleSpeed = -paddleSpeed;
+            if (e.key === "ArrowRight") leftPaddleSpeed = paddleSpeed;
+        });
+
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") leftPaddleSpeed = 0;
+        });
+
+        const startGame = () => {
+            startScreen.style.display = "none";
+            canvas.style.display = "block";
+            levelDisplay.style.display = "block";
+            generateHurdles();
+            draw();
+        };
+    </script>
+</body>
+</html>
