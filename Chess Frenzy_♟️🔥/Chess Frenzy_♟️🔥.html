@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game with AI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: url('https://images.pexels.com/photos/1456291/pexels-photo-1456291.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .chess-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, 80px);
+            grid-template-rows: repeat(8, 80px);
+            border: 2px solid black;
+            background-color: #000;
+        }
+
+        .chess-tile {
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .chess-tile.light {
+            background-color: #f0d9b5;
+        }
+
+        .chess-tile.dark {
+            background-color: #b58863;
+        }
+
+        .piece {
+            font-size: 48px;
+            cursor: grab;
+        }
+
+        .highlight {
+            background-color: yellow !important;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            background-color: #ccc;
+        }
+
+        #move-history {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+
+        .promotion-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 2px solid black;
+            border-radius: 10px;
+            padding: 20px;
+            z-index: 100;
+            display: none;
+        }
+
+        .promotion-modal button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chess-container">
+        <div id="chess-board" class="chess-board"></div>
+        <div class="controls">
+            <button id="resetBtn">Reset Game</button>
+            <button id="multiplayerBtn">Multiplayer</button>
+            <button id="aiBtn">Play Against Crazy AI</button>
+        </div>
+        <div id="move-history"></div>
+    </div>
+
+    <div id="promotion-modal" class="promotion-modal">
+        <p>Choose a piece for pawn promotion:</p>
+        <button data-piece="q">Queen</button>
+        <button data-piece="r">Rook</button>
+        <button data-piece="b">Bishop</button>
+        <button data-piece="n">Knight</button>
+    </div>
+
+    <script>
+        const boardElement = document.getElementById('chess-board');
+        const moveHistoryElement = document.getElementById('move-history');
+        const resetBtn = document.getElementById('resetBtn');
+        const multiplayerBtn = document.getElementById('multiplayerBtn');
+        const aiBtn = document.getElementById('aiBtn');
+        const promotionModal = document.getElementById('promotion-modal');
+
+        const PIECES = {
+            r: '♜', n: '♞', b: '♝', q: '♛', k: '♚', p: '♟',
+            R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔', P: '♙'
+        };
+
+        let boardState = [
+            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+        ];
+
+        let selectedPiece = null;
+        let validMoves = [];
+        let moveHistory = [];
+        let currentPlayer = 'white';
+        let aiEnabled = false;
+
+        function renderBoard() {
+            boardElement.innerHTML = '';
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const tile = document.createElement('div');
+                    tile.classList.add('chess-tile');
+                    tile.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
+                    tile.dataset.row = row;
+                    tile.dataset.col = col;
+
+                    const piece = boardState[row][col];
+                    if (piece) {
+                        const pieceElement = document.createElement('div');
+                        pieceElement.textContent = PIECES[piece];
+                        pieceElement.classList.add('piece');
+                        tile.appendChild(pieceElement);
+                    }
+
+                    tile.addEventListener('click', () => handleTileClick(row, col));
+
+                    boardElement.appendChild(tile);
+                }
+            }
+        }
+
+        function handleTileClick(row, col) {
+            const piece = boardState[row][col];
+
+            if (selectedPiece) {
+                if (validMoves.some(move => move.row === row && move.col === col)) {
+                    makeMove(selectedPiece.row, selectedPiece.col, row, col);
+                }
+                selectedPiece = null;
+                validMoves = [];
+                renderBoard();
+                return;
+            }
+
+            if (piece && isCurrentPlayerPiece(piece)) {
+                selectedPiece = { row, col };
+                validMoves = calculateValidMoves(row, col, piece);
+                highlightValidMoves();
+            }
+        }
+
+        function isCurrentPlayerPiece(piece) {
+            return (currentPlayer === 'white' && piece === piece.toUpperCase()) ||
+                   (currentPlayer === 'black' && piece === piece.toLowerCase());
+        }
+
+        function calculateValidMoves(row, col, piece) {
+            const moves = [];
+            const directions = {
+                p: [[1, 0], [1, -1], [1, 1]],
+                P: [[-1, 0], [-1, -1], [-1, 1]],
+                n: [[-2, -1], [-1, -2], [1, -2], [2, -1], [2, 1], [1, 2], [-1, 2], [-2, 1]],
+                b: [[-1, -1], [-1, 1], [1, -1], [1, 1]],
+                r: [[-1, 0], [1, 0], [0, -1], [0, 1]],
+                q: [[-1, -1], [-1, 1], [1, -1], [1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]],
+                k: [[-1, -1], [-1, 1], [1, -1], [1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]]
+            };
+            const isPawn = piece.toLowerCase() === 'p';
+
+            if (isPawn) {
+                const direction = piece === 'P' ? -1 : 1;
+                const startRow = piece === 'P' ? 6 : 1;
+
+                // Forward movement
+                if (!boardState[row + direction]?.[col]) {
+                    moves.push({ row: row + direction, col });
+                    if (row === startRow && !boardState[row + 2 * direction]?.[col]) {
+                        moves.push({ row: row + 2 * direction, col });
+                    }
+                }
+
+                // Capture movement
+                [[direction, -1], [direction, 1]].forEach(([dr, dc]) => {
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    if (isValidTile(newRow, newCol) && boardState[newRow][newCol] &&
+                        isEmptyOrOpponent(piece, newRow, newCol)) {
+                        moves.push({ row: newRow, col: newCol });
+                    }
+                });
+            } else {
+                (directions[piece.toLowerCase()] || []).forEach(([dr, dc]) => {
+                    let newRow = row + dr;
+                    let newCol = col + dc;
+                    while (isValidTile(newRow, newCol)) {
+                        if (isEmptyOrOpponent(piece, newRow, newCol)) {
+                            moves.push({ row: newRow, col: newCol });
+                        }
+                        if (boardState[newRow][newCol]) break;
+                        newRow += dr;
+                        newCol += dc;
+                    }
+                });
+            }
+            return moves;
+        }
+
+        function isValidTile(row, col) {
+            return row >= 0 && row < 8 && col >= 0 && col < 8;
+        }
+
+        function isEmptyOrOpponent(piece, row, col) {
+            const target = boardState[row][col];
+            return !target || (isCurrentPlayerPiece(target) !== isCurrentPlayerPiece(piece));
+        }
+
+        function highlightValidMoves() {
+            validMoves.forEach(move => {
+                const tile = boardElement.querySelector(
+                    `.chess-tile[data-row='${move.row}'][data-col='${move.col}']`
+                );
+                if (tile) tile.classList.add('highlight');
+            });
+        }
+
+        function makeMove(fromRow, fromCol, toRow, toCol) {
+            const piece = boardState[fromRow][fromCol];
+            boardState[fromRow][fromCol] = '';
+            boardState[toRow][toCol] = piece;
+            moveHistory.push(`${piece} from (${fromRow},${fromCol}) to (${toRow},${toCol})`);
+            updateMoveHistory();
+
+            if ((piece === 'P' && toRow === 0) || (piece === 'p' && toRow === 7)) {
+                showPromotionModal(toRow, toCol, piece);
+                return;
+            }
+
+            currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            renderBoard();
+            if (aiEnabled && currentPlayer === 'black') {
+                setTimeout(() => aiMove(), 500);
+            }
+        }
+
+        function showPromotionModal(row, col, piece) {
+            promotionModal.style.display = 'block';
+            promotionModal.querySelectorAll('button').forEach(button => {
+                button.onclick = () => {
+                    boardState[row][col] = (piece === 'P' ? button.dataset.piece.toUpperCase() : button.dataset.piece);
+                    promotionModal.style.display = 'none';
+                    currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+                    renderBoard();
+                    if (aiEnabled && currentPlayer === 'black') {
+                        setTimeout(() => aiMove(), 500);
+                    }
+                };
+            });
+        }
+
+        function updateMoveHistory() {
+            moveHistoryElement.innerHTML = moveHistory.join('<br>');
+        }
+
+        function aiMove() {
+            const allMoves = [];
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = boardState[row][col];
+                    if (piece && piece === piece.toLowerCase()) {
+                        const moves = calculateValidMoves(row, col, piece);
+                        moves.forEach(move => allMoves.push({ from: { row, col }, to: move }));
+                    }
+                }
+            }
+
+            if (allMoves.length > 0) {
+                const randomMove = allMoves[Math.floor(Math.random() * allMoves.length)];
+                makeMove(randomMove.from.row, randomMove.from.col, randomMove.to.row, randomMove.to.col);
+            }
+        }
+
+        resetBtn.addEventListener('click', () => {
+            boardState = [
+                ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+                ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+                ['', '','', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+                ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+            ];
+            moveHistory = [];
+            currentPlayer = 'white';
+            aiEnabled = false;
+            updateMoveHistory();
+            renderBoard();
+        });
+
+        multiplayerBtn.addEventListener('click', () => {
+            aiEnabled = false;
+            alert('Multiplayer mode activated. Play alternately.');
+        });
+
+        aiBtn.addEventListener('click', () => {
+            aiEnabled = true;
+            alert('Playing against AI. You are white.');
+            if (currentPlayer === 'black') {
+                setTimeout(() => aiMove(), 500);
+            }
+        });
+
+        renderBoard();
+    </script>
+</body>
+</html>
+
