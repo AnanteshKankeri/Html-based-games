@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mandelbrot Set Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            background: #1E1E1E;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: black;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 182, 193, 0.9);
+            color: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            text-align: center;
+            border-radius: 10px;
+        }
+        .description-box {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 2px solid white;
+            border-radius: 10px;
+            max-width: 300px;
+            display: block;
+        }
+        .toggle-button {
+            position: fixed;
+            top: 20px;
+            left: 350px;
+            background: white;
+            color: black;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: grab;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay">
+        <h1>Welcome to Mandelbrot Set Explorer</h1>
+        <p>Controls:</p>
+        <p>S/W to Move Down/Up, A/D to Move Left/Right</p>
+        <p>Arrow Keys to Zoom In/Out</p>
+        <p>Mouse Scroll to Zoom</p>
+        <p>Click Anywhere to Continue</p>
+    </div>
+    <canvas id="mandelbrotCanvas"></canvas>
+    <div class="description-box" id="descriptionBox">
+        <h2>Mandelbrot Set</h2>
+        <p>The Mandelbrot set is a fractal defined by the function:</p>
+        <p style="text-align: center; font-size: 1.2em; font-weight: bold;">z<sub>n+1</sub> = z<sub>n</sub><sup>2</sup> + c</p>
+        <p>Where z and c are complex numbers. This visualization iterates over each point to determine its escape time.</p>
+    </div>
+    <div class="toggle-button" id="toggleButton">Hide Info</div>
+    <script>
+        const canvas = document.getElementById('mandelbrotCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const descriptionBox = document.getElementById('descriptionBox');
+        const toggleButton = document.getElementById('toggleButton');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        let zoom = 500;
+        let targetZoom = zoom;
+        let panX = -2;
+        let targetPanX = panX;
+        let panY = -1.5;
+        let targetPanY = panY;
+        const zoomFactor = 1.1;
+        const panSpeed = 0.005;
+        
+        function mandelbrot(cRe, cIm, maxIterations) {
+            let zRe = 0, zIm = 0, iterations = 0;
+            while (zRe * zRe + zIm * zIm <= 4 && iterations < maxIterations) {
+                const tempRe = zRe * zRe - zIm * zIm + cRe;
+                zIm = 2 * zRe * zIm + cIm;
+                zRe = tempRe;
+                iterations++;
+            }
+            return iterations;
+        }
+        
+        function drawMandelbrot() {
+            const maxIterations = 1000;
+            const imgData = ctx.createImageData(canvas.width, canvas.height);
+            
+            for (let x = 0; x < canvas.width; x++) {
+                for (let y = 0; y < canvas.height; y++) {
+                    const cRe = (x - canvas.width / 2) / zoom + panX;
+                    const cIm = (y - canvas.height / 2) / zoom + panY;
+                    const iterations = mandelbrot(cRe, cIm, maxIterations);
+                    const color = iterations === maxIterations ? 0 : 255 - (iterations * 255) / maxIterations;
+                    const pixelIndex = (y * canvas.width + x) * 4;
+                    imgData.data[pixelIndex] = color;
+                    imgData.data[pixelIndex + 1] = color;
+                    imgData.data[pixelIndex + 2] = color;
+                    imgData.data[pixelIndex + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+        
+        function animate() {
+            zoom += (targetZoom - zoom) * 0.1;
+            panX += (targetPanX - panX) * 0.1;
+            panY += (targetPanY - panY) * 0.1;
+            drawMandelbrot();
+            requestAnimationFrame(animate);
+        }
+        
+        document.addEventListener('keydown', (event) => {
+            switch (event.key) {
+                case 'ArrowUp': targetZoom *= zoomFactor; break;
+                case 'ArrowDown': targetZoom /= zoomFactor; break;
+                case 'a': targetPanX -= panSpeed * canvas.width / zoom; break;
+                case 'd': targetPanX += panSpeed * canvas.width / zoom; break;
+                case 'w': targetPanY -= panSpeed * canvas.height / zoom; break;
+                case 's': targetPanY += panSpeed * canvas.height / zoom; break;
+            }
+        });
+        
+        canvas.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            targetZoom *= event.deltaY < 0 ? zoomFactor : 1 / zoomFactor;
+        });
+        
+        overlay.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            animate();
+        });
+        
+        toggleButton.addEventListener('click', () => {
+            const isVisible = descriptionBox.style.display !== 'none';
+            descriptionBox.style.display = isVisible ? 'none' : 'block';
+            toggleButton.textContent = isVisible ? 'Show Info' : 'Hide Info';
+        });
+        
+        // Draggable functionality for toggle button
+        let isDragging = false;
+        let offsetX, offsetY;
+
+        toggleButton.addEventListener('mousedown', (event) => {
+            isDragging = true;
+            offsetX = event.clientX - toggleButton.getBoundingClientRect().left;
+            offsetY = event.clientY - toggleButton.getBoundingClientRect().top;
+            toggleButton.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (event) => {
+            if (isDragging) {
+                toggleButton.style.left = `${event.clientX - offsetX}px`;
+                toggleButton.style.top = `${event.clientY - offsetY}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            toggleButton.style.cursor = 'grab';
+        });
+    </script>
+</body>
+</html>
