@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futuristic Dino Runner</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: url('background.png') no-repeat center center/cover;
+        }
+        canvas {
+            display: block;
+            width: 80vw;
+            height: 80vh;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            text-align: center;
+            border-radius: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">Press Space to Start</div>
+    <div id="gameOverScreen" style="display: none;">Game Over! Press Space to Restart</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth * 0.8;
+        canvas.height = window.innerHeight * 0.8;
+        
+        let gameRunning = false;
+        let gameSpeed = 2;
+        let gameTime = 0;
+        let speedIncreaseInterval = 500;
+        let obstacleInterval, birdInterval;
+        let startTime, elapsedTime = 0;
+        let allowDoubleObstacles = false; // Control when double obstacles spawn
+
+        let dino = {
+            x: (canvas.width * 3) / 4,
+            y: canvas.height - 100,
+            width: 50,
+            height: 50,
+            velocityY: 0,
+            jumping: false,
+            jumpPower: 22, // Increased jump power
+            img: new Image()
+        };
+        dino.img.src = 'dino.png';
+
+        let obstacles = [];
+        let birds = [];
+
+        function createObstacle() {
+            let obstacleWidth = 40;
+            let spacing = allowDoubleObstacles ? 50 : 0; // Space between two obstacles if allowed
+            
+            // First obstacle
+            obstacles.push({
+                x: 0,
+                y: canvas.height - 100,
+                width: obstacleWidth,
+                height: 40,
+                speed: gameSpeed,
+                img: new Image()
+            });
+            obstacles[obstacles.length - 1].img.src = 'obstacle.png';
+
+            // Add second obstacle if 25 seconds have passed
+            if (allowDoubleObstacles) {
+                obstacles.push({
+                    x: spacing,
+                    y: canvas.height - 100,
+                    width: obstacleWidth,
+                    height: 40,
+                    speed: gameSpeed,
+                    img: new Image()
+                });
+                obstacles[obstacles.length - 1].img.src = 'obstacle.png';
+            }
+        }
+
+        function createBird() {
+            if (elapsedTime < 90000) return; // Birds spawn only after 90 seconds
+            birds.push({
+                x: 0,
+                y: dino.y - 50,
+                width: 40,
+                height: 30,
+                speed: gameSpeed + 1,
+                img: new Image()
+            });
+            birds[birds.length - 1].img.src = 'bird.png';
+        }
+
+        function drawDino() {
+            ctx.drawImage(dino.img, dino.x, dino.y, dino.width, dino.height);
+        }
+
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                ctx.drawImage(obstacle.img, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            });
+        }
+
+        function drawBirds() {
+            birds.forEach(bird => {
+                ctx.drawImage(bird.img, bird.x, bird.y, bird.width, bird.height);
+            });
+        }
+
+        function checkCollision(entity) {
+            return (
+                dino.x < entity.x + entity.width &&
+                dino.x + dino.width > entity.x &&
+                dino.y < entity.y + entity.height &&
+                dino.y + dino.height > entity.y
+            );
+        }
+
+        function updateGame() {
+            if (!gameRunning) return; 
+
+            elapsedTime = Date.now() - startTime; // Update elapsed time
+            if (elapsedTime > 25000) allowDoubleObstacles = true; // Enable double obstacles after 25 seconds
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawDino();
+            drawObstacles();
+            drawBirds();
+            drawTimer(); // Draw the timer
+
+            obstacles.forEach((obstacle, index) => {
+                obstacle.x += obstacle.speed;
+                if (obstacle.x > canvas.width) {
+                    obstacles.splice(index, 1);
+                }
+                if (checkCollision(obstacle)) {
+                    endGame();
+                    return;
+                }
+            });
+
+            birds.forEach((bird, index) => {
+                bird.x += bird.speed;
+                if (bird.x > canvas.width) {
+                    birds.splice(index, 1);
+                }
+                if (checkCollision(bird)) {
+                    endGame();
+                    return;
+                }
+            });
+
+            if (dino.jumping) {
+                dino.y -= dino.velocityY;
+                dino.velocityY -= 0.8;
+                if (dino.y >= canvas.height - 100) {
+                    dino.y = canvas.height - 100;
+                    dino.jumping = false;
+                }
+            }
+
+            gameTime++;
+            if (gameTime % speedIncreaseInterval === 0) {
+                gameSpeed += 0.2;
+                obstacles.forEach(obstacle => obstacle.speed = gameSpeed);
+                birds.forEach(bird => bird.speed = gameSpeed + 1);
+            }
+
+            requestAnimationFrame(updateGame);
+        }
+
+        function drawTimer() {
+            let minutes = Math.floor(elapsedTime / 60000);
+            let seconds = Math.floor((elapsedTime % 60000) / 1000);
+            let milliseconds = Math.floor((elapsedTime % 1000) / 10);
+
+            let timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(2, '0')}`;
+
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText(timeText, canvas.width - 100, 30);
+        }
+
+        function startGame() {
+            gameRunning = true;
+            gameSpeed = 2;
+            gameTime = 0;
+            elapsedTime = 0;
+            startTime = Date.now();
+            allowDoubleObstacles = false;
+            obstacles = [];
+            birds = [];
+
+            clearInterval(obstacleInterval);
+            clearInterval(birdInterval);
+
+            obstacleInterval = setInterval(createObstacle, 2500);
+            birdInterval = setInterval(createBird, 4000);
+
+            document.getElementById("startScreen").style.display = "none";
+            document.getElementById("gameOverScreen").style.display = "none";
+
+            updateGame();
+        }
+
+        function endGame() {
+            gameRunning = false;
+            document.getElementById("gameOverScreen").style.display = "block";
+            clearInterval(obstacleInterval);
+            clearInterval(birdInterval);
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "Space") {
+                if (!gameRunning) {
+                    startGame();
+                } else if (!dino.jumping) {
+                    dino.jumping = true;
+                    dino.velocityY = dino.jumpPower;
+                }
+            }
+        });
+
+        document.getElementById("startScreen").style.display = "block";
+    </script>
+</body>
+</html>
