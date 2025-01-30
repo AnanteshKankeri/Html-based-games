@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save the Gift</title>
+    <style>
+        @font-face {
+            font-family: 'Avallon';
+            src: url('https://github.com/Gooodgis/dont-touch-my-presents/raw/main/data/assets/Avallon.woff2') format('woff2');
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: url('https://cloud-7r1f4ymfc-hack-club-bot.vercel.app/0inv.png') no-repeat center center fixed;
+            background-size: cover;
+            filter: invert(1); /* Apply the invert filter to the entire body */
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: transparent;
+        }
+        #scoreContainer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 150px;
+            height: 100px;
+        }
+        #scoreboard {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #score {
+            position: absolute;
+            top: 25px; /* Adjust this to position the score within the scoreboard */
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 40px; /* Adjust font size as needed */
+            font-weight: bold;
+            color: black;
+            font-family: 'Avallon', sans-serif;
+        }
+        #startButton, #replayButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+        }
+        #replayButton {
+            display: none; /* Initially hidden */
+        }
+        #gameOverMessage {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 50px;
+            font-weight: bold;
+            color: red;
+            font-family: 'Avallon', sans-serif;
+            display: none; /* Initially hidden */
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="400" height="800"></canvas>
+        <div id="scoreContainer">
+            <img id="scoreboard" src="https://github.com/Gooodgis/dont-touch-my-presents/raw/main/data/assets/scoreboard.png" alt="Scoreboard">
+            <div id="score">0</div>
+        </div>
+        <img id="startButton" src="https://cloud-i3bvmnup3-hack-club-bot.vercel.app/0adobe_express_-_file__3_.png" alt="Start Button" width="100" height="100">
+        <img id="replayButton" src="https://cloud-6g0wtgd1c-hack-club-bot.vercel.app/0adobe_express_-_file__4_.png" alt="Replay Button" width="100" height="100">
+        <div id="gameOverMessage">Game Over!</div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let score = 0;
+        const player = { x: canvas.width / 2 - 75, y: canvas.height - 300, width: 150, height: 300 }; // Increase height
+        const hurdles = [];
+        let lastHurdleTime = 0;
+        const hurdleInterval = 2000; // 2 seconds
+        const verticalSpacing = 600; // Larger uniform vertical distance
+        let gameOver = false;
+
+        const giftImage = new Image();
+        giftImage.src = 'https://cloud-f622itpjm-hack-club-bot.vercel.app/0gift_image.png';
+        const leftHandImage = new Image();
+        leftHandImage.src = 'https://github.com/Gooodgis/dont-touch-my-presents/raw/main/data/assets/left_hand.png';
+        const rightHandImage = new Image();
+        rightHandImage.src = 'https://github.com/Gooodgis/dont-touch-my-presents/raw/main/data/assets/right_hand.png';
+        const santaHandImage = new Image();
+        santaHandImage.src = 'https://github.com/Gooodgis/dont-touch-my-presents/raw/main/data/assets/santa_hand.png';
+        const dottedLineImage = new Image();
+        dottedLineImage.src = 'https://github.com/Gooodgis/dont-touch-my-presents/raw/main/data/assets/dotted_line.png';
+
+        function createHurdle() {
+            const y = hurdles.length === 0 ? -100 : hurdles[hurdles.length - 1].y - verticalSpacing;
+            const isLeftHand = Math.random() < 0.5;
+            const handWidth = canvas.width * 0.75;
+            const handHeight = 100;
+            const x = isLeftHand ? 0 : canvas.width - handWidth;
+            const handImage = isLeftHand ? leftHandImage : rightHandImage;
+            hurdles.push({ x, y, width: handWidth, height: handHeight, speed: 3, handImage });
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            const currentTime = Date.now();
+            if (currentTime - lastHurdleTime > hurdleInterval) {
+                createHurdle();
+                lastHurdleTime = currentTime;
+            }
+
+            // Move player
+            player.x = mouse.x - player.width / 2;
+            player.y = mouse.y - player.height / 2;
+
+            // Move hurdles
+            hurdles.forEach(hurdle => {
+                hurdle.y += hurdle.speed;
+            });
+
+            // Check for collisions with hurdles
+            hurdles.forEach((hurdle, index) => {
+                if (player.y < hurdle.y + hurdle.height &&
+                    player.y + player.height > hurdle.y) {
+                    if (player.x < hurdle.x + hurdle.width && player.x + player.width > hurdle.x) {
+                        gameOver = true;
+                        document.getElementById('gameOverMessage').style.display = 'block'; // Show the game over message
+                        document.getElementById('replayButton').style.display = 'block'; // Show the replay button
+                    }
+                }
+            });
+
+            // Remove hurdles that are off the screen
+            for (let i = hurdles.length - 1; i >= 0; i--) {
+                if (hurdles[i].y > canvas.height) {
+                    hurdles.splice(i, 1);
+                    score += 1;
+                    document.getElementById('score').innerText = score;
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw hurdles and dotted lines
+            hurdles.forEach(hurdle => {
+                // Draw dotted line behind each hurdle
+                ctx.drawImage(dottedLineImage, 0, hurdle.y + hurdle.height / 2 - 5, canvas.width, 10);
+                
+                // Draw hurdles
+                ctx.drawImage(hurdle.handImage, hurdle.x, hurdle.y, hurdle.width, hurdle.height);
+            });
+
+            // Draw player (Santa's hand holding the gift)
+            ctx.drawImage(santaHandImage, player.x, player.y, player.width, player.height);
+            // Position the gift in Santa's palm
+            ctx.drawImage(giftImage, player.x + player.width / 2 - 25, player.y + 10, 50, 50); // Adjust position to be on the top part of the hand
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            if (!gameOver) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            hurdles.length = 0;
+            lastHurdleTime = 0;
+            gameOver = false;
+            document.getElementById('score').innerText = score;
+            document.getElementById('gameOverMessage').style.display = 'none'; // Hide the game over message
+            document.getElementById('replayButton').style.display = 'none'; // Hide the replay button
+            gameLoop();
+        }
+
+        // Mouse controls
+        const mouse = { x: canvas.width / 2, y: canvas.height - 150 };
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+
+        // Start game when the start button is clicked
+        const startButton = document.getElementById('startButton');
+        startButton.addEventListener('click', () => {
+            startButton.style.display = 'none'; // Hide the start button
+            gameLoop(); // Start the game
+        });
+
+        // Replay game when the replay button is clicked
+        const replayButton = document.getElementById('replayButton');
+        replayButton.addEventListener('click', resetGame);
+    </script>
+</body>
+</html>
