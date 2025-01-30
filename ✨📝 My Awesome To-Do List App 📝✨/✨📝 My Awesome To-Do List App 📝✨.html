@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced To-Do List App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chamberi+Super+Display:wght@400&family=The+Serif+Hand&display=swap" rel="stylesheet">
+    <style>
+        /* Overall page styling */
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('https://images.pexels.com/photos/346529/pexels-photo-346529.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        /* Container styling */
+        .container {
+            background-image: url('https://wallpaperaccess.com/full/1092611.jpg');
+            background-size: cover;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        /* Sticky notes section styling */
+        .sticky-notes-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            max-width: 600px;
+        }
+
+        /* Emoji styling */
+        .emoji {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+        }
+
+        /* Heading styling */
+        h1 {
+            text-align: center;
+            font-family: 'Chamberi Super Display', sans-serif;
+        }
+
+        /* Input field container styling */
+        .input-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        /* Input field styling */
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* Sticky note styling */
+        .sticky-note {
+            width: 200px;
+            height: 150px;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background-color: rgba(255, 255, 255, 0.8);
+            font-family: 'The Serif Hand', cursive;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            flex-direction: column;
+            resize: both;
+            overflow: auto;
+        }
+
+        /* Delete button styling */
+        .sticky-note button {
+            background: #ff4d4d;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+        }
+
+        /* Color buttons styling */
+        .color-picker {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .color-picker button {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Font picker styling */
+        .font-picker {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .font-picker select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="emoji">📝</div>
+        <h1>To-Do List</h1>
+        <div class="input-container">
+            <input type="text" id="task-input" placeholder="Add a new task...">
+        </div>
+        <div class="color-picker">
+            <button style="background-color: #FFC107;" onclick="setColor('#FFC107')"></button>
+            <button style="background-color: #FF5722;" onclick="setColor('#FF5722')"></button>
+            <button style="background-color: #4CAF50;" onclick="setColor('#4CAF50')"></button>
+            <button style="background-color: #2196F3;" onclick="setColor('#2196F3')"></button>
+            <button style="background-color: #E91E63;" onclick="setColor('#E91E63')"></button>
+            <button style="background-color: #9C27B0;" onclick="setColor('#9C27B0')"></button>
+        </div>
+        <div class="font-picker">
+            <select id="font-picker">
+                <option value="The Serif Hand">The Serif Hand</option>
+                <option value="Comic Sans MS">Comic Sans MS</option>
+                <option value="Arial">Arial</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Verdana">Verdana</option>
+            </select>
+        </div>
+        <ul id="task-list"></ul>
+    </div>
+    <button onclick="addStickyNote()">Add Sticky Note</button>
+    <div class="sticky-notes-container" id="sticky-notes-container"></div>
+
+    <script>
+        let currentColor = '#FFC107';
+        let currentFont = 'The Serif Hand';
+
+        document.getElementById('task-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        document.getElementById('font-picker').addEventListener('change', function () {
+            currentFont = this.value;
+        });
+
+        function setColor(color) {
+            currentColor = color;
+        }
+
+        function addTask() {
+            const taskInput = document.getElementById('task-input');
+            const taskText = taskInput.value.trim();
+            if (taskText === '') return;
+
+            const taskList = document.getElementById('task-list');
+            const taskItem = document.createElement('li');
+            taskItem.className = 'sticky-note';
+            taskItem.style.backgroundColor = currentColor;
+            taskItem.style.fontFamily = currentFont;
+            taskItem.textContent = taskText;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.onclick = function () {
+                taskList.removeChild(taskItem);
+            };
+
+            taskItem.appendChild(deleteButton);
+            taskList.appendChild(taskItem);
+            taskInput.value = '';
+        }
+
+        function addStickyNote() {
+            const stickyNotesContainer = document.getElementById('sticky-notes-container');
+            const stickyNote = document.createElement('div');
+            stickyNote.className = 'sticky-note';
+            stickyNote.style.backgroundColor = currentColor;
+            stickyNote.style.fontFamily = currentFont;
+            stickyNote.textContent = "New Sticky Note";
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.onclick = function () {
+                stickyNotesContainer.removeChild(stickyNote);
+            };
+
+            stickyNote.appendChild(deleteButton);
+            stickyNotesContainer.appendChild(stickyNote);
+        }
+    </script>
+</body>
+</html>
