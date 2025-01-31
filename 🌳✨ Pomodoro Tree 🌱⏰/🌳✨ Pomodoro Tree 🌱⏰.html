@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌳✨ Pomodoro Tree 🌱⏰</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Orbitron&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: url('https://wallpapers.com/images/file/beautiful-minecraft-cherry-blossoms-8zlaxmeiqm93j24f.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.8); /* Set background to white with 80% opacity */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .title {
+            font-family: 'Pacifico', cursive;
+            font-size: 36px;
+            color: #4B0082;
+        }
+
+        .timer {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 64px;
+            margin: 20px 0;
+            letter-spacing: 2px;
+            opacity: 0.8; /* Make it barely visible */
+            color: white; /* Set text color to white for contrast */
+            text-shadow: 2px 2px 4px black, -2px -2px 4px black; /* Add black outline */
+        }
+
+        .controls button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        .tree-selection {
+            margin: 20px 0;
+        }
+
+        #tree-container {
+            width: 600px;
+            height: 400px;
+            margin: 20px 0;
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">🌳✨ Pomodoro Tree 🌱⏰</h1>
+        <div class="timer">
+            <span id="timer">25:00</span>
+        </div>
+        <div class="controls">
+            <button id="startButton">Start</button>
+            <button id="resetButton">Reset</button>
+        </div>
+        <div class="tree-selection">
+            <label for="treeType">Select a tree:</label>
+            <select id="treeType">
+                <option value="christmas">Christmas Tree</option>
+                <option value="mango">Mango Tree</option>
+                <option value="apple">Apple Tree</option>
+                <option value="cactus">Cactus</option>
+                <option value="cherry-blossom">Cherry Blossom Tree</option>
+            </select>
+        </div>
+        <div id="tree-container"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <script>
+        let workDuration = 25 * 60; // 25 minutes in seconds
+        let breakDuration = 5 * 60; // 5 minutes in seconds
+        let timer;
+        let isWorking = true;
+        let currentTimer = workDuration;
+        let growthStage = 1;
+        let flowers = [];
+
+        const timerElement = document.getElementById('timer');
+        const startButton = document.getElementById('startButton');
+        const resetButton = document.getElementById('resetButton');
+        const treeTypeSelect = document.getElementById('treeType');
+        const treeContainer = document.getElementById('tree-container');
+
+        startButton.addEventListener('click', startTimer);
+        resetButton.addEventListener('click', resetTimer);
+        treeTypeSelect.addEventListener('change', resetTree);
+
+        // Initialize Three.js scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, treeContainer.clientWidth / treeContainer.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(treeContainer.clientWidth, treeContainer.clientHeight);
+        treeContainer.appendChild(renderer.domElement);
+
+        // Add lighting
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5).normalize();
+        scene.add(light);
+
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        let tree = null;
+        const treeMaterials = {
+            christmas: new THREE.MeshStandardMaterial({ color: 0x00ff00 }),
+            mango: new THREE.MeshStandardMaterial({ color: 0xFFA500 }), // Orange tint for mango tree
+            apple: new THREE.MeshStandardMaterial({ color: 0xFF6347 }), // Slightly different red for apple tree
+            cactus: new THREE.MeshStandardMaterial({ color: 0x228B22 }),
+            cherryBlossom: new THREE.MeshStandardMaterial({ color: 0x8B4513 }) // Brown for cherry blossom trunk
+        };
+
+        function createTree(type) {
+            if (tree) {
+                scene.remove(tree);
+            }
+
+            const trunkGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 32);
+            const trunkMaterial = treeMaterials[type];
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+
+            let foliageGeometry, foliageMaterial, foliage;
+            switch (type) {
+                case 'christmas':
+                    foliageGeometry = new THREE.ConeGeometry(1, 2, 8);
+                    foliageMaterial = treeMaterials.christmas;
+                    foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                    foliage.position.y = 1;
+                    break;
+                case 'mango':
+                    foliageGeometry = new THREE.SphereGeometry(1.2, 32, 32); // Slightly larger sphere for mango tree
+                    foliageMaterial = treeMaterials.mango;
+                    foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                    foliage.position.y = 1;
+                    break;
+                case 'apple':
+                    foliageGeometry = new THREE.SphereGeometry(1, 32, 32);
+                    foliageMaterial = treeMaterials.apple;
+                    foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                    foliage.position.y = 1;
+                    // Add smaller branches to the apple tree
+                    const branchGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 32);
+                    const branchMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+                    const branch1 = new THREE.Mesh(branchGeometry, branchMaterial);
+                    branch1.position.set(0.5, 1, 0);
+                    branch1.rotation.z = Math.PI / 4;
+                    const branch2 = new THREE.Mesh(branchGeometry, branchMaterial);
+                    branch2.position.set(-0.5, 1, 0);
+                    branch2.rotation.z = -Math.PI / 4;
+                    foliage.add(branch1);
+                    foliage.add(branch2);
+                    break;
+                case 'cactus':
+                    foliageGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
+                    foliageMaterial = treeMaterials.cactus;
+                    foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                    const eyeGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+                    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+                    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                    leftEye.position.set(-0.3, 0.5, 0.5);
+                    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                    rightEye.position.set(0.3, 0.5, 0.5);
+                    foliage.add(leftEye);
+                    foliage.add(rightEye);
+                    break;
+                case 'cherry-blossom':
+                    foliageGeometry = new THREE.SphereGeometry(1, 32, 32);
+                    foliageMaterial = treeMaterials.cherryBlossom;
+                    foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                    foliage.position.y = 1;
+                    break;
+            }
+
+            tree = new THREE.Group();
+            tree.add(trunk);
+            tree.add(foliage);
+            scene.add(tree);
+
+            camera.position.z = 5;
+
+            // Initialize flowers array for cherry blossom tree
+            if (type === 'cherry-blossom') {
+                flowers = [];
+                for (let i = 0; i < 150; i++) {
+                    const flowerGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+                    const flowerMaterial = new THREE.MeshStandardMaterial({ color: 0xFF69B4 });
+                    const flower = new THREE.Mesh(flowerGeometry, flowerMaterial);
+                    flower.position.set((Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2);
+                    flower.visible = false; // Hide flowers initially
+                    flowers.push(flower);
+                    tree.add(flower);
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        function startTimer() {
+            if (timer) return; // Prevent multiple timers from starting
+            timer = setInterval(updateTimer, 1000);
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            timer = null;
+            isWorking = true;
+            currentTimer = workDuration;
+            growthStage = 1;
+            updateTimerDisplay();
+            resetTree();
+        }
+
+        function resetTree() {
+            const treeType = treeTypeSelect.value;
+            createTree(treeType);
+        }
+
+        function updateTimer() {
+            if (currentTimer > 0) {
+                currentTimer--;
+                if (currentTimer === 0) {
+                    if (isWorking) {
+                        growTree();
+                        currentTimer = breakDuration;
+                    } else {
+                        currentTimer = workDuration;
+                    }
+                    isWorking = !isWorking;
+                }
+            }
+            updateTimerDisplay();
+            if (currentTimer % 10 === 0) {
+                growFlowers(); // Grow flowers every 10 seconds
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(currentTimer / 60);
+            const seconds = currentTimer % 60;
+            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function growTree() {
+            growthStage++;
+            gsap.to(tree.scale, { x: growthStage, y: growthStage, z: growthStage, duration: 1 });
+
+            // Add ripened fruit effect for mango and apple trees
+            if (growthStage === 3 && (treeTypeSelect.value === 'mango' || treeTypeSelect.value === 'apple')) {
+                const fruitGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+                const fruitMaterial = new THREE.MeshStandardMaterial({ color: treeTypeSelect.value === 'mango' ? 0xffa500 : 0xff0000 });
+                for (let i = 0; i < 5; i++) {
+                    const fruit = new THREE.Mesh(fruitGeometry, fruitMaterial);
+                    fruit.position.set((Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2);
+                    tree.add(fruit);
+                }
+            }
+        }
+
+        function growFlowers() {
+            if (treeTypeSelect.value === 'cherry-blossom') {
+                const flowerIndex = Math.floor((workDuration - currentTimer) / 10) * 3;
+                for (let i = 0; i < 3; i++) {
+                    if (flowerIndex + i < flowers.length) {
+                        flowers[flowerIndex + i].visible = true;
+                    }
+                }
+                // Increase the trunk size as flowers grow
+                gsap.to(tree.children[0].scale, { y: tree.children[0].scale.y + 0.01, duration: 1 });
+            }
+        }
+
+        animate();
+        resetTree();
+    </script>
+</body>
+</html>
