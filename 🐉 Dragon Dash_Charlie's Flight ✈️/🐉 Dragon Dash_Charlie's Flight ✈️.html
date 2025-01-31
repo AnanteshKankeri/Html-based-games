@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circus Charlie Runner</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: url('https://static.vecteezy.com/system/resources/previews/013/974/234/non_2x/abstract-background-modern-vibrant-gradient-color-waves-design-background-vector.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .game-container {
+            position: relative;
+            width: 800px; /* Adjust this width as needed */
+            height: 600px; /* Adjust this height as needed */
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: url('https://static.vecteezy.com/system/resources/thumbnails/001/793/672/original/seamless-animation-of-fantasy-alien-background-video.jpg') repeat-x;
+            background-size: cover;
+        }
+        .score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            color: #000;
+        }
+        .game-over, .start-screen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            color: #000;
+            text-align: center;
+        }
+        .game-over button, .start-screen button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .game-over button:hover, .start-screen button:hover {
+            background-color: #0056b3;
+        }
+        .start-screen .controls {
+            font-size: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="score" id="score">Score: 0</div>
+        <div class="game-over" id="gameOver">
+            Game Over!<br>
+            <button onclick="resetGame()">Restart Game</button>
+        </div>
+        <div class="start-screen" id="startScreen">
+            🐉 Dragon Dash: Charlie's Flight ✈️<br>
+            <button onclick="startGame()">Start Game</button>
+            <div class="controls">
+                Controls:<br>
+                Arrow Up - Fly Up<br>
+                Arrow Down - Fly Down<br>
+                Arrow Right - Accelerate<br>
+                Arrow Left - Decelerate<br>
+                Space - Jump (if not flying)
+            </div>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800; // Adjust to match game-container width
+        canvas.height = 600; // Adjust to match game-container height
+
+        // Load assets
+        const charlyImg = new Image();
+        charlyImg.src = 'https://cloud-gkrnicz2e-hack-club-bot.vercel.app/0adobe_express_-_file__6_.png';
+
+        const wingHalfImg = new Image();
+        wingHalfImg.src = 'https://th.bing.com/th/id/R.bb28383aa74c5c0a7e46eb367107add8?rik=utTaAkavOPtVRw&riu=http%3a%2f%2fclipart-library.com%2fimages_k%2ftransparent-angel-wing%2ftransparent-angel-wing-21.png&ehk=ASCMSLSLz011iZj5F%2bl4kFXNwigmBDWgPtF81XK%2fiIo%3d&risl=&pid=ImgRaw&r=0';
+
+        const wingFullImg = new Image();
+        wingFullImg.src = 'https://cloud-c0k4nm6a1-hack-club-bot.vercel.app/0wing2.png';
+
+        const wingImg1 = new Image();
+        wingImg1.src = 'https://cloud-c0k4nm6a1-hack-club-bot.vercel.app/1wing1.png';
+
+        const obstacleImg = new Image();
+        obstacleImg.src = 'https://cloud-cyd32kw29-hack-club-bot.vercel.app/0adobe_express_-_file__5_.png';
+
+        const dragonImg1 = new Image();
+        dragonImg1.src = 'https://cloud-kcj4mabpc-hack-club-bot.vercel.app/0adobe_express_-_file__7_.png';
+
+        const dragonImg2 = new Image();
+        dragonImg2.src = 'https://cloud-hxzynqklf-hack-club-bot.vercel.app/0remove_background_project__2_.png';
+
+        const dragonImg3 = new Image();
+        dragonImg3.src = 'https://cloud-kcj4mabpc-hack-club-bot.vercel.app/1remove_background_project__1_.png';
+
+        const backgroundImg = new Image();
+        backgroundImg.src = 'https://static.vecteezy.com/system/resources/thumbnails/001/793/672/original/seamless-animation-of-fantasy-alien-background-video.jpg';
+
+        let charly = {
+            x: 50,
+            y: canvas.height - 180, // Adjusted to align with the ground
+            width: 80,  // Adjusted to keep aspect ratio smaller
+            height: 80,
+            speed: 5,
+            jumping: false,
+            flying: false,
+            flySpeed: 0,
+            flyUpSpeed: 0,
+            jumpStrength: 30, // Increased jump strength for a longer jump
+            gravity: 1,
+            velocity: 0
+        };
+
+        let obstacles = [];
+        let dragons = [];
+        let gameSpeed = 3;
+        let score = 0;
+        let gameOver = false;
+        let gameStarted = false;
+        let wingFrame = 0;
+        let dragonFrame = 0;
+        let wingOpacity = 1;
+
+        charlyImg.onload = () => {
+            showStartScreen();
+        };
+
+        // Show start screen
+        function showStartScreen() {
+            const startScreen = document.getElementById('startScreen');
+            startScreen.style.display = 'block';
+        }
+
+        // Start game
+        function startGame() {
+            gameStarted = true;
+            const startScreen = document.getElementById('startScreen');
+            startScreen.style.display = 'none';
+            gameLoop();
+        }
+
+        // Create obstacles randomly
+        function createObstacle() {
+            const obstacle = {
+                x: canvas.width,
+                y: canvas.height - 100, // Adjusted to align with the ground
+                width: 50,
+                height: 50,
+                speed: gameSpeed
+            };
+            obstacles.push(obstacle);
+        }
+
+        // Create dragon obstacles randomly when Charlie is in the air
+        function createDragonObstacle() {
+            if (charly.flying && dragons.length === 0) {
+                const dragon = {
+                    x: canvas.width,
+                    y: Math.random() * (canvas.height / 2), // Spawn the dragon in the upper half of the canvas
+                    width: 250, // Increase size to make it larger
+                    height: 250, // Increase size to make it larger
+                    speed: gameSpeed
+                };
+                dragons.push(dragon);
+            }
+        }
+
+        // Function to maintain aspect ratio of dragon images
+        function drawImageWithAspectRatio(ctx, img, x, y, maxWidth, maxHeight) {
+            const aspectRatio = img.width / img.height;
+            let width = maxWidth;
+            let height = maxHeight;
+
+            if (width / height > aspectRatio) {
+                width = height * aspectRatio;
+            } else {
+                height = width / aspectRatio;
+            }
+
+            ctx.drawImage(img, x, y, width, height);
+        }
+
+        // Check collision between two rectangles
+        function isColliding(rect1, rect2) {
+            return (
+                rect1.x < rect2.x + rect2.width &&
+                rect1.x + rect1.width > rect2.x &&
+                rect1.y < rect2.y + rect2.height &&
+                rect1.y + rect1.height > rect2.y
+            );
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (gameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+
+            // Draw Charly with wings if flying or wings are fading out
+            if (charly.flying || wingOpacity > 0) {
+                const wingImg = wingFrame % 30 < 10 ? wingImg1 : (wingFrame % 30 < 20 ? wingHalfImg : wingFullImg);
+                ctx.globalAlpha = wingOpacity;
+                ctx.drawImage(wingImg, charly.x - 20, charly.y - 20, charly.width + 40, charly.height + 40); // Drawing wing slightly larger and positioned behind Charlie
+                ctx.globalAlpha = 1;
+                wingFrame++;
+            }
+            ctx.drawImage(charlyImg, charly.x, charly.y, charly.width, charly.height);
+
+            // Draw obstacles
+            obstacles.forEach(obstacle => {
+                ctx.drawImage(obstacleImg, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                obstacle.x -= obstacle.speed;
+
+                // Updated collision detection for Charlie's sword
+                if (charly.x + charly.width > obstacle.x + 10 && // Adjusted to check the sword area only
+                    charly.x + charly.width < obstacle.x + obstacle.width - 10 &&
+                    charly.y + charly.height > obstacle.y &&
+                    charly.y < obstacle.y + obstacle.height) {
+                    endGame();
+                }
+            });
+
+            // Draw dragon obstacles
+            dragons.forEach(dragon => {
+                const dragonImg = dragonFrame % 30 < 10 ? dragonImg1 : (dragonFrame % 30 < 20 ? dragonImg2 : dragonImg3);
+                drawImageWithAspectRatio(ctx, dragonImg, dragon.x, dragon.y, dragon.width, dragon.height);
+                dragon.x -= dragon.speed;
+
+                // Collision detection for dragon (excluding wings)
+                const charlyBody = {
+                    x: charly.x + 20, // Offset to exclude wings
+                    y: charly.y,
+                    width: charly.width - 40,
+                    height: charly.height
+                };
+
+                // Making dragon's collision rectangle narrower and shorter
+                const dragonBody = {
+                    x: dragon.x + 75, // Significant reduction in width
+                    y: dragon.y + 50, // Significant reduction in height
+                    width: dragon.width - 150,
+                    height: dragon.height - 100
+                };
+
+                if (isColliding(charlyBody, dragonBody)) {
+                    endGame();
+                }
+            });
+
+            dragonFrame++;
+
+            // Character jumping and flying mechanics
+            if (charly.jumping) {
+                charly.velocity -= charly.gravity;
+                charly.y -= charly.velocity;
+                if (charly.y >= canvas.height - charly.height - 30) { // Ensure Charlie lands on the ground
+                    charly.y = canvas.height - charly.height - 30;
+                    charly.jumping = false;
+                    charly.velocity = charly.jumpStrength;
+                }
+            }
+
+            if (charly.flying) {
+                charly.y += charly.flyUpSpeed;
+                charly.x += charly.flySpeed;
+
+                // Prevent Charlie from flying out of canvas boundaries
+                if (charly.y < 0) {
+                    endGame();
+                } else if (charly.y > canvas.height - charly.height - 30) { // Ensure Charlie lands on the ground
+                    charly.y = canvas.height - charly.height - 30;
+                    charly.flying = false;
+                }
+            }
+
+            // Fade out wings when Charlie reaches the ground
+            if (!charly.flying && charly.y >= canvas.height - charly.height - 30) {
+                wingOpacity -= 0.05;
+                if (wingOpacity < 0) wingOpacity = 0;
+            } else {
+                wingOpacity = 1;
+            }
+
+            // Remove off-screen obstacles and dragons, and update score
+            obstacles = obstacles.filter(obstacle => obstacle.x + obstacle.width > 0);
+            dragons = dragons.filter(dragon => dragon.x + dragon.width > 0);
+            score += 1;
+
+            // Display score
+            document.getElementById('score').innerText = `Score: ${score}`;
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            gameOver = true;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function resetGame() {
+            charly.x = 50; // Reset position to start from the ground
+            charly.y = canvas.height - charly.height - 30; // Start from the ground
+            obstacles = [];
+            dragons = [];
+            score = 0;
+            gameOver = false;
+            charly.flying = false;
+            charly.flySpeed = 0;
+            charly.flyUpSpeed = 0;
+            wingOpacity = 1;
+            document.getElementById('gameOver').style.display = 'none';
+            gameLoop();
+        }
+
+        // User controls
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                if (gameOver) {
+                    resetGame();
+                } else if (!charly.jumping && !charly.flying) {
+                    charly.jumping = true;
+                }
+            } else if (e.code === 'ArrowRight') {
+                charly.flySpeed = 5; // Accelerate
+            } else if (e.code === 'ArrowLeft') {
+                charly.flySpeed = -5; // Decelerate
+            } else if (e.code === 'ArrowUp') {
+                charly.flying = true;
+                charly.flyUpSpeed = -5; // Start flying and fly up
+            } else if (e.code === 'ArrowDown') {
+                charly.flyUpSpeed = 5; // Fly down
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') {
+                charly.flySpeed = 0; // Stop horizontal movement
+            } else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+                charly.flyUpSpeed = 0; // Stop vertical movement
+            }
+        });
+
+        // Start game
+        setInterval(createObstacle, 2000); // Create new obstacle every 2 seconds
+        setInterval(createDragonObstacle, 5000); // Create new dragon obstacle every 5 seconds if flying
+    </script>
+</body>
+</html>
